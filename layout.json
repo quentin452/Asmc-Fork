@@ -1,0 +1,13 @@
+{
+  "ideaDirPath": "/home/iamacat/Bureau/githubrepo/Asmc-Fork/.idea",
+  "modulesMap": {
+    "Asmc-Fork": "/home/iamacat/Bureau/githubrepo/Asmc-Fork/.idea/modules/Asmc-Fork.iml",
+    "Asmc-Fork:api": "/home/iamacat/Bureau/githubrepo/Asmc-Fork/.idea/modules/Asmc-Fork.api.iml",
+    "Asmc-Fork:ideVirtualMain": "/home/iamacat/Bureau/githubrepo/Asmc-Fork/.idea/modules/Asmc-Fork.ideVirtualMain.iml",
+    "Asmc-Fork:injectedTags": "/home/iamacat/Bureau/githubrepo/Asmc-Fork/.idea/modules/Asmc-Fork.injectedTags.iml",
+    "Asmc-Fork:main": "/home/iamacat/Bureau/githubrepo/Asmc-Fork/.idea/modules/Asmc-Fork.main.iml",
+    "Asmc-Fork:mcLauncher": "/home/iamacat/Bureau/githubrepo/Asmc-Fork/.idea/modules/Asmc-Fork.mcLauncher.iml",
+    "Asmc-Fork:patchedMc": "/home/iamacat/Bureau/githubrepo/Asmc-Fork/.idea/modules/Asmc-Fork.patchedMc.iml",
+    "Asmc-Fork:test": "/home/iamacat/Bureau/githubrepo/Asmc-Fork/.idea/modules/Asmc-Fork.test.iml"
+  }
+}
