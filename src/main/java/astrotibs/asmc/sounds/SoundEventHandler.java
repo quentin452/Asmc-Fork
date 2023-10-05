@@ -1,19 +1,11 @@
 package astrotibs.asmc.sounds;
 
-import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-
-import com.google.common.collect.Lists;
-
 import astrotibs.asmc.config.GeneralConfig;
 import astrotibs.asmc.ieep.PlayerArmorTracker;
 import astrotibs.asmc.proxy.ClientProxy;
 import astrotibs.asmc.utility.LogHelper;
 import astrotibs.asmc.utility.Reference;
+import com.google.common.collect.Lists;
 import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent.ClientTickEvent;
@@ -21,19 +13,7 @@ import cpw.mods.fml.common.gameevent.TickEvent.Phase;
 import cpw.mods.fml.relauncher.ReflectionHelper;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockButtonWood;
-import net.minecraft.block.BlockChest;
-import net.minecraft.block.BlockCrops;
-import net.minecraft.block.BlockDoor;
-import net.minecraft.block.BlockEndPortalFrame;
-import net.minecraft.block.BlockEnderChest;
-import net.minecraft.block.BlockFenceGate;
-import net.minecraft.block.BlockNetherWart;
-import net.minecraft.block.BlockNetherrack;
-import net.minecraft.block.BlockSoulSand;
-import net.minecraft.block.BlockStoneSlab;
-import net.minecraft.block.BlockTrapDoor;
+import net.minecraft.block.*;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSound;
@@ -43,12 +23,7 @@ import net.minecraft.client.entity.EntityClientPlayerMP;
 import net.minecraft.client.gui.GuiEnchantment;
 import net.minecraft.client.gui.GuiScreenBook;
 import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityHanging;
-import net.minecraft.entity.EntityLeashKnot;
-import net.minecraft.entity.EntityLiving;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.SharedMonsterAttributes;
+import net.minecraft.entity.*;
 import net.minecraft.entity.item.EntityEnderEye;
 import net.minecraft.entity.item.EntityItemFrame;
 import net.minecraft.entity.item.EntityPainting;
@@ -65,22 +40,11 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.inventory.ContainerEnchantment;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemAxe;
-import net.minecraft.item.ItemBucket;
-import net.minecraft.item.ItemFishingRod;
-import net.minecraft.item.ItemHoe;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ItemSword;
+import net.minecraft.item.*;
 import net.minecraft.potion.Potion;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityBeacon;
-import net.minecraft.util.AxisAlignedBB;
-import net.minecraft.util.Direction;
-import net.minecraft.util.MathHelper;
-import net.minecraft.util.MovingObjectPosition;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.Vec3;
+import net.minecraft.util.*;
 import net.minecraft.world.World;
 import net.minecraftforge.client.event.sound.PlaySoundEvent17;
 import net.minecraftforge.common.IPlantable;
@@ -97,45 +61,42 @@ import net.minecraftforge.event.entity.player.FillBucketEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent.Action;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.*;
+
 public class SoundEventHandler
 {
-	private static double enderEyeSoundRadius = 18.0D;
-	// Only a fraction of blocks produce the crackle every tick, so only search one every N. I'm hard-coding this to minimize computation footprint.
+    // Only a fraction of blocks produce the crackle every tick, so only search one every N. I'm hard-coding this to minimize computation footprint.
     final static int everyNblocks = 10*10; // The furnace is ticked for every 10 world ticks, and then only plays the sound 10% of the time.
     final static int furnaceSoundRadius = 15; // Search range, in blocks, that this event looks for active furnaces
-    
+
     // The way I'm going to do this is to randomly generate a fraction of positions from the search cube.
     // This equates to generating (2*soundRange+1)^3 / everyNblocks unique numbers.
     // Then I de-convolve those numbers to 3D positions, and if there's a furnace at that position, I play the crackle noise.
     // The actual calculation takes a bit more nuance.
-        
+
     // Step 1: figure out how many total blocks will be searched.
     final static int totalBlocks = ((2*furnaceSoundRadius)+1)*((2*furnaceSoundRadius)+1)*((2*furnaceSoundRadius)+1); // Total number of blocks in the search cube
     // Step 2: find out how many positions we'll check, rounded up.
     final static int numPosToCheck = (totalBlocks+everyNblocks-1)/everyNblocks;
-    
+
     private static ItemStack itemInSlot; // Used to determine whether something changed in the interface
     private static int currPage = -1; // Used to determine if a page was turned in a book
-    
+
     // Some magic machinery for scanning for beacons
-    private static float beaconSoundRadius = 8F; // Distance from which you can hear an ambient beacon
-    private static float beaconRadiusSqrd = beaconSoundRadius*beaconSoundRadius;
-    private static int xToScan = 0;
-    private static int yToScan = 0;
-    private static int zToScan = 0;
-    private static HashMap<List<Integer>, Block>  beaconmap;
-    
-    
+    private static final float beaconSoundRadius = 8F; // Distance from which you can hear an ambient beacon
+
     @SubscribeEvent
     @SideOnly(Side.CLIENT)
     //public void test(GuiScreenEvent.DrawScreenEvent event)
     public void onClientTick(ClientTickEvent event)
     {
     	// --- START OF PHASE --- //
-    	
+
     	if (event.phase == Phase.START)
     	{
-    		
+
     		// --- Beacon --- //
         	if (
         			Minecraft.getMinecraft().theWorld != null
@@ -145,38 +106,36 @@ public class SoundEventHandler
         	{
         		EntityClientPlayerMP player = Minecraft.getMinecraft().thePlayer;
     			World world = Minecraft.getMinecraft().theWorld;
-        		
+
     	    	// Systematically check all blocks within a squared distance less than 12 (distance less than 3.46)
     	        for (int xScan = MathHelper.ceiling_double_int(player.posX-beaconSoundRadius); xScan <= MathHelper.floor_double(player.posX+beaconSoundRadius); xScan++)
     	        {
     	        	double yzCircleDist = xScan-player.posX; // current search plane's distance from the parrot in the x direction
-    	        	
-    	        	for (int yScan = MathHelper.ceiling_double_int(player.posY-MathHelper.sqrt_double(beaconRadiusSqrd-yzCircleDist*yzCircleDist)); yScan <= MathHelper.floor_double(player.posY+MathHelper.sqrt_double(beaconRadiusSqrd-yzCircleDist*yzCircleDist)); yScan++)
+
+                    float beaconRadiusSqrd = beaconSoundRadius * beaconSoundRadius;
+                    for (int yScan = MathHelper.ceiling_double_int(player.posY-MathHelper.sqrt_double(beaconRadiusSqrd -yzCircleDist*yzCircleDist)); yScan <= MathHelper.floor_double(player.posY+MathHelper.sqrt_double(beaconRadiusSqrd -yzCircleDist*yzCircleDist)); yScan++)
     	        	{
     	        		double zSliceDist = yScan-player.posY; // Current search row's distance from the parrot in the y direction
-    	        		
-    	        		for (int zScan = MathHelper.ceiling_double_int(player.posZ-MathHelper.sqrt_double(beaconRadiusSqrd-yzCircleDist*yzCircleDist-zSliceDist*zSliceDist)); zScan <= MathHelper.floor_double(player.posZ+MathHelper.sqrt_double(beaconRadiusSqrd-yzCircleDist*yzCircleDist-zSliceDist*zSliceDist)); zScan++)
+
+    	        		for (int zScan = MathHelper.ceiling_double_int(player.posZ-MathHelper.sqrt_double(beaconRadiusSqrd -yzCircleDist*yzCircleDist-zSliceDist*zSliceDist)); zScan <= MathHelper.floor_double(player.posZ+MathHelper.sqrt_double(beaconRadiusSqrd -yzCircleDist*yzCircleDist-zSliceDist*zSliceDist)); zScan++)
     	        		{
     	        			TileEntity tileentity = world.getTileEntity(xScan, yScan, zScan);
-    	        			
+
     	        			if (
     	        					//world.getBlock(xScan, yScan, zScan) instanceof BlockBeacon
-    	        					tileentity != null
-    	        					&& tileentity instanceof TileEntityBeacon
+                                tileentity instanceof TileEntityBeacon
     	        					)
     	        			{
     	        				TileEntityBeacon teBeacon = (TileEntityBeacon)tileentity;
     	        				boolean beaconThinksItIsOn = teBeacon.getLevels() > 0;
-    	        				boolean beaconIsOnBruteFrc = false; 
-    	        				
+    	        				boolean beaconIsOnBruteFrc = false;
+
     	        				// Scan the blocks underneath and determine whether the beam SHOULD be on
     	        				int j = 1;
             	                int yBaseScan = teBeacon.yCoord - j;
-            	                boolean flag = true; // Trick to breaking out of a multi-level for loop
-            	                
-            	                if (yBaseScan < 0) {flag = false;} // Beneath is void, so this beacon must be off
-            	                
-            	                // Scan the 3x3 beneath
+            	                boolean flag = yBaseScan >= 0; // Trick to breaking out of a multi-level for loop
+
+                                // Scan the 3x3 beneath
             	                for (int xBaseScan = teBeacon.xCoord - j; xBaseScan <= teBeacon.xCoord + j && flag; ++xBaseScan)
             	                {
             	                    for (int zBaseScan = teBeacon.zCoord - j; zBaseScan <= teBeacon.zCoord + j; ++zBaseScan)
@@ -191,9 +150,9 @@ public class SoundEventHandler
             	                        }
             	                    }
             	                }
-            	                
+
             	                if (flag) {beaconIsOnBruteFrc = true;}
-    	        				
+
     	        				if (beaconThinksItIsOn)
     	        				{
     		        				// If the beacon thinks it's on and it is on, then play the ambient sound.
@@ -232,14 +191,14 @@ public class SoundEventHandler
     	        }
         	}
         }
-    	
+
     	// --- END OF PHASE --- //
     	if (event.phase == Phase.END)
     	{
     		EntityClientPlayerMP player = Minecraft.getMinecraft().thePlayer;
 			World world = Minecraft.getMinecraft().theWorld;
-			
-    		
+
+
 			// --- Furnace crackle --- //
 			if (
 					!Minecraft.getMinecraft().isGamePaused()
@@ -251,26 +210,26 @@ public class SoundEventHandler
 				// Generating a list and going through it takes more computational power (thus FPS) than generating multiple random values.
         		// The downside is that rarely, a position can be double-ticked. I barely care.
 				for (int p = 0; p < numPosToCheck ; p++)
-				{ 
+				{
 					int codedPosition = world.rand.nextInt(numPosToCheck*everyNblocks-1);
-					
+
             		if (codedPosition <= (totalBlocks-1)) // Occasionally, a position will be outside the cube, and that's fine. Just reject it.
             		{
             			// Step 3: decode the integer to an x, y, z position
-            			
+
             			// These range from -15 to +15 in x, y, z
             			int sx = (codedPosition / ( ((2*furnaceSoundRadius)+1)*((2*furnaceSoundRadius)+1) )) - furnaceSoundRadius; // X position is unpacked
             			int sy = codedPosition % ( ((2*furnaceSoundRadius)+1)*((2*furnaceSoundRadius)+1) ); // this is Y and Z convolved
             			int sz = (sy % ((2*furnaceSoundRadius)+1)) - furnaceSoundRadius; // Z position is unpacked
             			sy = (sy / ((2*furnaceSoundRadius)+1)) - furnaceSoundRadius; // Y position is unpacked
-            			
-            			
+
+
             			// Step 4: add the player's position as offset.
             			int fx = sx + MathHelper.floor_double(player.posX);
             			int fy = sy + MathHelper.floor_double(player.posY + player.eyeHeight);
             			int fz = sz + MathHelper.floor_double(player.posZ);
-            			
-            			
+
+
             			// Step 5: only continue if the position is inside the sphere AND inside the world:
             			if (
             					fy >= 0 // Greater than the void height
@@ -289,26 +248,24 @@ public class SoundEventHandler
             		}
 				}
 			}
-    		
-    		
+
+
     		// --- Enchantment Table --- //
     		if (
-        			Minecraft.getMinecraft().currentScreen instanceof GuiEnchantment
-    				&& GeneralConfig.enchantmentTableSounds
+                Minecraft.getMinecraft().currentScreen instanceof GuiEnchantment
     				)
     		{
     			// give @p minecraft:wooden_pickaxe 6
-    			
-        		GuiEnchantment gui = (GuiEnchantment)Minecraft.getMinecraft().currentScreen;
-        		
-        		ContainerEnchantment containerEnchantment_reflected = ReflectionHelper.getPrivateValue(GuiEnchantment.class, gui, "field_147075_G");
-        		
-        		if (this.itemInSlot == null) // Dummy item is null
+                GuiEnchantment gui = (GuiEnchantment)Minecraft.getMinecraft().currentScreen;
+
+                ContainerEnchantment containerEnchantment_reflected = ReflectionHelper.getPrivateValue(GuiEnchantment.class, gui, "field_147075_G");
+
+        		if (itemInSlot == null) // Dummy item is null
         		{
         			if (containerEnchantment_reflected.tableInventory.getStackInSlot(0) != null) // but there is something in the slot
         			{
         				// Update the dummy item to match what's in the slot
-        				this.itemInSlot = containerEnchantment_reflected.tableInventory.getStackInSlot(0);
+        				itemInSlot = containerEnchantment_reflected.tableInventory.getStackInSlot(0);
         			}
         		}
         		else // The Dummy item is something
@@ -316,22 +273,22 @@ public class SoundEventHandler
         			if (containerEnchantment_reflected.tableInventory.getStackInSlot(0) == null) // the  slot is empty
         			{
         				// The item was taken out of the slot.
-        				this.itemInSlot = null;
+        				itemInSlot = null;
         			}
         			else if (
-        						!ItemStack.areItemStacksEqual(this.itemInSlot, containerEnchantment_reflected.tableInventory.getStackInSlot(0)) // Slot stack has changed
+        						!ItemStack.areItemStacksEqual(itemInSlot, containerEnchantment_reflected.tableInventory.getStackInSlot(0)) // Slot stack has changed
         					) // The slot item is different now
         			{
         				if (
-        						!this.itemInSlot.isItemEnchanted() && containerEnchantment_reflected.tableInventory.getStackInSlot(0).isItemEnchanted() // to something enchanted
-        						&& this.itemInSlot.getItem() == containerEnchantment_reflected.tableInventory.getStackInSlot(0).getItem() // But the item is the same
-        						&& this.itemInSlot.getItemDamage() == containerEnchantment_reflected.tableInventory.getStackInSlot(0).getItemDamage() // with the same damage
+        						!itemInSlot.isItemEnchanted() && containerEnchantment_reflected.tableInventory.getStackInSlot(0).isItemEnchanted() // to something enchanted
+        						&& itemInSlot.getItem() == containerEnchantment_reflected.tableInventory.getStackInSlot(0).getItem() // But the item is the same
+        						&& itemInSlot.getItemDamage() == containerEnchantment_reflected.tableInventory.getStackInSlot(0).getItemDamage() // with the same damage
         						)
         				{
-        					
-        					
-        					this.itemInSlot = containerEnchantment_reflected.tableInventory.getStackInSlot(0);
-            				
+
+
+        					itemInSlot = containerEnchantment_reflected.tableInventory.getStackInSlot(0);
+
             				if (world!=null && player!=null)
                             {
                     			world.playSound(
@@ -344,24 +301,24 @@ public class SoundEventHandler
         				}
         				else
             			{
-            				this.itemInSlot = containerEnchantment_reflected.tableInventory.getStackInSlot(0);
+            				itemInSlot = containerEnchantment_reflected.tableInventory.getStackInSlot(0);
             			}
         			}
-        			
+
         		}
-        		
+
         		return;
     		}
-    		
-    		
-    		
+
+
+
     		// Reset the dummy item -- used especially to make the Enchanting Table work
-    		if (this.itemInSlot != null) {this.itemInSlot = null;}
-    		if (this.currPage != -1) {this.currPage = -1;}
+    		if (itemInSlot != null) {itemInSlot = null;}
+    		if (currPage != -1) {currPage = -1;}
     	}
     }
-    
-    
+
+
     /**
      * This is the method used to REPLACE sound effects.
      * This is done client-side, so must be flagged as such, and the config options must say so.
@@ -376,71 +333,75 @@ public class SoundEventHandler
     				event.sound.getPositionedSoundLocation().getResourceDomain()+":"+event.name
     				+ ", volume: " + event.sound.getVolume()
     				+ ", pitch: " + event.sound.getPitch()
-    				+ ", at block " + Minecraft.getMinecraft().theWorld.getBlock(MathHelper.floor_float(event.sound.getXPosF()), MathHelper.floor_float(event.sound.getYPosF()), MathHelper.floor_float(event.sound.getZPosF()))	
+    				+ ", at block " + Minecraft.getMinecraft().theWorld.getBlock(MathHelper.floor_float(event.sound.getXPosF()), MathHelper.floor_float(event.sound.getYPosF()), MathHelper.floor_float(event.sound.getZPosF()))
     				+ " at " + event.sound.getXPosF() + " " + event.sound.getYPosF() + " " + event.sound.getZPosF()
     			);
     	}
-    	
-    	
+
+
     	// --- Cancel sounds originating from the player --- //
 		if (
 				(
-				
+
 				// --- Cancel damage sound when drowning or on fire --- //
 				(event.name.equals("game.player.hurt")
 				&& (GeneralConfig.drowningSounds || GeneralConfig.onfireSounds)) ||
-				
+
 				// --- Cancel fishing line --- //
 				(event.name.equals("random.bow")
 						&& (GeneralConfig.fishingrodSounds))
 						)
-				
+
 				&& event.sound.getPositionedSoundLocation().getResourceDomain().equals("minecraft")
 				)
 		{
 			float soundX = event.sound.getXPosF();
 			float soundY = event.sound.getYPosF();
 			float soundZ = event.sound.getZPosF();
-			
+
 			SoundManager sndManager_reflected = ReflectionHelper.getPrivateValue(SoundHandler.class, Minecraft.getMinecraft().getSoundHandler(), new String[]{"field_147694_f", "sndManager"});
 			Map playingSounds_reflected = ReflectionHelper.getPrivateValue(SoundManager.class, sndManager_reflected, new String[]{"field_148629_h", "playingSounds"});
-			
+
 			Iterator itr = playingSounds_reflected.keySet().iterator();
-			while(itr.hasNext())
-			{
-				PositionedSound positionedSound;
-				
-				// Because Darian experienced a crash relating to CofH
-				try {positionedSound = (PositionedSound)playingSounds_reflected.get(itr.next());}
-				catch (Exception e) {continue;}
-				
-				ResourceLocation resourceLocation_reflected = ReflectionHelper.getPrivateValue(PositionedSound.class, positionedSound, "field_147664_a");
-				
-				if (
-						// The new sound is playing
-						resourceLocation_reflected.getResourceDomain().equals(Reference.MOD_ID)
-						&& (
-								(event.name.equals("game.player.hurt") &&
-								(resourceLocation_reflected.getResourcePath().equals("entity.player.hurt_drown")
-								|| resourceLocation_reflected.getResourcePath().equals("entity.player.hurt_on_fire"))) ||
-								
-								(event.name.equals("random.bow") &&
-								(resourceLocation_reflected.getResourcePath().equals("entity.fishing_bobber.throw")))
-								)
-						&& (
-								((soundX-positionedSound.getXPosF())*(soundX-positionedSound.getXPosF()) +
-								(soundY-positionedSound.getYPosF())*(soundY-positionedSound.getYPosF()) +
-								(soundZ-positionedSound.getZPosF())*(soundZ-positionedSound.getZPosF())) <= 0.05F 
-								)
-						)
-				{
-					// The "hit" sound is coming from within about a quarter-block distance from the "drown" sound, so we'll assume they're the same cause
-					event.result = null;
-					return;
-				}
-			}
+            Field positionedSoundField = ReflectionHelper.findField(PositionedSound.class, "field_147664_a");
+            positionedSoundField.setAccessible(true);
+
+            String resourceDomain;
+            String resourcePath;
+            float xPos;
+            float yPos;
+            float zPos;
+
+            while (itr.hasNext()) {
+                try {
+                    PositionedSound positionedSound = (PositionedSound) itr.next();
+                    ResourceLocation resourceLocation = (ResourceLocation) positionedSoundField.get(positionedSound);
+
+                    resourceDomain = resourceLocation.getResourceDomain();
+                    resourcePath = resourceLocation.getResourcePath();
+
+                    xPos = positionedSound.getXPosF();
+                    yPos = positionedSound.getYPosF();
+                    zPos = positionedSound.getZPosF();
+
+
+                    boolean isHitSound = (event.name.equals("game.player.hurt") &&
+                        (resourcePath.equals("entity.player.hurt_drown") || resourcePath.equals("entity.player.hurt_on_fire"))) ||
+                        (event.name.equals("random.bow") && resourcePath.equals("entity.fishing_bobber.throw"));
+
+                    boolean isClose = (xPos - soundX) * (xPos - soundX) +
+                        (yPos - soundY) * (yPos - soundY) +
+                        (zPos - soundZ) * (zPos - soundZ) <= 0.05F;
+
+                    if (resourceDomain.equals(Reference.MOD_ID) && isHitSound && isClose) {
+                        event.result = null;
+                        return;
+                    }
+                } catch (Exception e) {
+                }
+        }
 		}
-    	
+
     	// --- Book page turn --- //
     	if (
     			Minecraft.getMinecraft().currentScreen instanceof GuiScreenBook
@@ -454,29 +415,29 @@ public class SoundEventHandler
     				)
     		{
     			GuiScreenBook gui = (GuiScreenBook)Minecraft.getMinecraft().currentScreen;
-        		
+
     			int currPage_reflected = ReflectionHelper.getPrivateValue(GuiScreenBook.class, gui, new String[]{"field_146484_x", "currPage"});
-    			
+
     			// If there is a disagreement on page, play the page-turning sound
-    			if (currPage_reflected != this.currPage)
+    			if (currPage_reflected != currPage)
     			{
-    				this.currPage = currPage_reflected;
-    				
+    				currPage = currPage_reflected;
+
     				EntityClientPlayerMP player = Minecraft.getMinecraft().thePlayer;
     	        	World world = Minecraft.getMinecraft().theWorld;
-    	        	
+
     				player.playSound(
     						Reference.MOD_ID+":item.book.page_turn",
     						1.0F,
     						world.rand.nextFloat() * 0.1F + 0.9F
     						);
-    				
+
     				event.result = null;
     				return;
     			}
-    		}    		
+    		}
     	}
-    	
+
     	if (
     			!Minecraft.getMinecraft().isGamePaused()
 				&& Minecraft.getMinecraft().theWorld != null
@@ -485,35 +446,35 @@ public class SoundEventHandler
     	{
     		EntityClientPlayerMP player = Minecraft.getMinecraft().thePlayer;
         	World world = Minecraft.getMinecraft().theWorld;
-        	
+
         	float soundX = event.sound.getXPosF();
         	float soundY = event.sound.getYPosF();
         	float soundZ = event.sound.getZPosF();
-        	
+
     		Block block_at_sound = world.getBlock(
     				MathHelper.floor_float(soundX),
     				MathHelper.floor_float(soundY-0.01F), // Slightly below so that top-surface sounds detect the block underneath
     				MathHelper.floor_float(soundZ));
-    		
-    		
+
+
     		// Check vanilla sounds
     		if (event.sound.getPositionedSoundLocation().getResourceDomain().equals("minecraft"))
     		{
-    			
+
     			// --- Zombie Villager --- //
     			if (GeneralConfig.zombievillagerSounds)
     			{
     				float zombieBoxRange = 0.25F;
-    				
+
     				List zombieList = world.getEntitiesWithinAABB(
 		    				EntityZombie.class, AxisAlignedBB.getBoundingBox(
 		    						soundX - zombieBoxRange, soundY - zombieBoxRange, soundZ - zombieBoxRange,
 		    						soundX + zombieBoxRange, soundY + zombieBoxRange, soundZ + zombieBoxRange
 		    						)
 		    				);
-    				
+
     				Iterator iterator = zombieList.iterator();
-	        		
+
 	        		while (iterator.hasNext())
 	        		{
 	        			EntityZombie zombie = (EntityZombie)iterator.next();
@@ -557,11 +518,11 @@ public class SoundEventHandler
 	                		}
 	        			}
 	        		}
-    				
-    				
+
+
     			}
-    			
-    			
+
+
     			// --- Player Swim --- //
         		if (event.name.equals("game.player.swim")
         				&& GeneralConfig.swimSounds_modern)
@@ -580,7 +541,7 @@ public class SoundEventHandler
         				&& GeneralConfig.swimSounds_modern)
         		{
         			float playerBoxRange = 0.25F;
-    				
+
     				List playerList = world.getEntitiesWithinAABB(
 		    				EntityPlayer.class, AxisAlignedBB.getBoundingBox(
 		    						soundX - playerBoxRange, soundY - playerBoxRange, soundZ - playerBoxRange,
@@ -588,20 +549,20 @@ public class SoundEventHandler
 		    						)
 		    				);
     				Iterator iterator = playerList.iterator();
-	        		
+
 	        		while (iterator.hasNext())
 	        		{
 	        			EntityPlayer playerselected = (EntityPlayer)iterator.next();
-	        			
+
 	        			// Water-striking speed to determine whether to play the large splash sound
 	        			float doWaterSplashEffect_f1 = (MathHelper.sqrt_double(
             					playerselected.motionX * playerselected.motionX * 0.20000000298023224D
             					+ playerselected.motionY * playerselected.motionY
             					+ playerselected.motionZ * playerselected.motionZ * 0.20000000298023224D
             					)) * (playerselected.riddenByEntity==null ? 0.2F : 0.9F);
-	        			
+
 	        			if (doWaterSplashEffect_f1 > 1.0F) {doWaterSplashEffect_f1 = 1.0F;}
-	        			
+
 	        			// Play fast splash sound instead
 	        			if (doWaterSplashEffect_f1 >= 0.25D)
 	        			{
@@ -616,24 +577,24 @@ public class SoundEventHandler
 	        			}
 	        		}
         		}
-        		
-        		
+
+
         		// --- Cancel old Hoe sound --- //
         		if (
         				(block_at_sound==Blocks.dirt || block_at_sound==Blocks.grass)
-        				
+
         				&& world.getBlock(
         	    				MathHelper.floor_float(soundX),
         	    				MathHelper.floor_float(soundY+1-0.01F), // Slightly below so that top-surface sounds detect the block underneath
         	    				MathHelper.floor_float(soundZ))==Blocks.air
-        				
+
 	        			&& event.name.equals("step.gravel")
         				&& GeneralConfig.farmlandtillSounds)
         		{
         			// Ray trace and ensure that SOME player is operating on this block
-        			
-        			List<EntityPlayer> allPlayers = Lists.<EntityPlayer>newArrayList();
-					
+
+        			List<EntityPlayer> allPlayers = Lists.newArrayList();
+
 			        for (Object entity : player.worldObj.playerEntities)
 			        {
 			            if ( (EntityPlayer.class).isAssignableFrom(entity.getClass()) )
@@ -641,11 +602,11 @@ public class SoundEventHandler
 			            	allPlayers.add((EntityPlayer)entity);
 			            }
 			        }
-			        
+
 			        for (EntityPlayer playerInServerList : allPlayers)
 			        {
-			        	MovingObjectPosition movingobjectposition = getMovingObjectPositionFromPlayer(world, playerInServerList, true);
-			        	
+			        	MovingObjectPosition movingobjectposition = getMovingObjectPositionFromPlayer(world, playerInServerList);
+
 			        	if (movingobjectposition == null) {return;}
 						else
 						{
@@ -666,14 +627,14 @@ public class SoundEventHandler
 						}
 			        }
         		}
-        		
-        		
-        		
+
+
+
         		// --- Cancel modded Stripped log sound --- //
         		if (
         				block_at_sound.getMaterial() == Material.wood
         				&& block_at_sound.getClass().toString().substring(6).toLowerCase().contains("stripped")
-        				
+
         				&& ((block_at_sound.getClass().toString().substring(6).toLowerCase().contains("etfuturum")
 	        					&& Loader.isModLoaded("etfuturum")
 	        					&& event.name.equals("step.wood"))
@@ -682,14 +643,14 @@ public class SoundEventHandler
 	            					&& Loader.isModLoaded("uptodate")
 	    							&& event.name.equals("dig.cloth"))
 	        					)
-        				
+
         				&& GeneralConfig.strippedlogSounds)
         		{
-        			
+
         			// Ray trace and ensure that SOME player is operating on this block
-        			
-        			List<EntityPlayer> allPlayers = Lists.<EntityPlayer>newArrayList();
-					
+
+        			List<EntityPlayer> allPlayers = Lists.newArrayList();
+
 			        for (Object entity : player.worldObj.playerEntities)
 			        {
 			            if ( (EntityPlayer.class).isAssignableFrom(entity.getClass()) )
@@ -697,11 +658,11 @@ public class SoundEventHandler
 			            	allPlayers.add((EntityPlayer)entity);
 			            }
 			        }
-			        
+
 			        for (EntityPlayer playerInServerList : allPlayers)
 			        {
-			        	MovingObjectPosition movingobjectposition = getMovingObjectPositionFromPlayer(world, playerInServerList, true);
-			        	
+			        	MovingObjectPosition movingobjectposition = getMovingObjectPositionFromPlayer(world, playerInServerList);
+
 			        	if (movingobjectposition == null) {return;}
 						else
 						{
@@ -722,8 +683,8 @@ public class SoundEventHandler
 						}
 			        }
         		}
-        		
-        		
+
+
     			// --- Wooden Button --- //
     			if (
         				(
@@ -749,8 +710,8 @@ public class SoundEventHandler
     				event.result = null;
     				return;
         		}
-        		
-        		
+
+
         		// --- Note Blocks --- //
         		if (event.name.equals("note.harp")
         				// Special handler for soul sand
@@ -770,13 +731,13 @@ public class SoundEventHandler
         						)
         				&& GeneralConfig.noteBlockSounds)
         		{
-        			String instrumentToPlay = event.name;
-        			
+        			String instrumentToPlay;
+
         			Block blockBeneath = world.getBlock(
             				MathHelper.floor_float(soundX),
             				MathHelper.floor_float(soundY)-1,
             				MathHelper.floor_float(soundZ));
-        			
+
         			// Specific blocks
         			     if (blockBeneath==Blocks.soul_sand)             {instrumentToPlay = Reference.MOD_ID+":note.note_block.cow_bell";}
         			else if (blockBeneath==Blocks.hay_block)             {instrumentToPlay = Reference.MOD_ID+":note.note_block.banjo";}
@@ -800,19 +761,19 @@ public class SoundEventHandler
         					) {instrumentToPlay = Reference.MOD_ID+":note.note_block.xylophone";}
     			    // Harp sound was updated as of 1.12
         			else {instrumentToPlay = Reference.MOD_ID+":note.note_block.harp";}
-     				
+
         			world.playSound(
     						soundX, soundY, soundZ,
     						instrumentToPlay,
     						instrumentToPlay.equals(Reference.MOD_ID+":note.note_block.iron_xylophone") ? 1F : event.sound.getVolume(),
     						event.sound.getPitch(),
     						false);
-        			
+
     				event.result = null;
     				return;
         		}
-        		
-        		
+
+
         		// --- Netherrack --- //
     			if (block_at_sound instanceof BlockNetherrack
     					&& GeneralConfig.netherrackSounds)
@@ -840,8 +801,8 @@ public class SoundEventHandler
         				return;
     	    		}
     	    	}
-    			
-    			
+
+
     			// --- Nether Quartz Ore --- //
     			if (block_at_sound==Blocks.quartz_ore
     					&& GeneralConfig.netherquartzoreSounds)
@@ -869,8 +830,8 @@ public class SoundEventHandler
         				return;
     	    		}
     	    	}
-    			
-    			
+
+
     			// --- Nether Brick --- //
     			if (
     					(block_at_sound==Blocks.nether_brick
@@ -911,8 +872,8 @@ public class SoundEventHandler
         				return;
     	    		}
     	    	}
-    			
-        		
+
+
         		// --- Basalt --- //
     			if (
     					(block_at_sound.getClass().toString().substring(6).toLowerCase().contains("basalt"))
@@ -941,8 +902,8 @@ public class SoundEventHandler
         				return;
     	    		}
     	    	}
-        		
-        		
+
+
         		// --- Bone Block --- //
     			if (
     					(// TODO - Make explicit Bone Block in 1.10
@@ -975,8 +936,8 @@ public class SoundEventHandler
         				return;
     	    		}
     	    	}
-        		
-        		
+
+
         		// --- Nether Wart Block --- //
     			if (
     					(// TODO - Make explicit Nether Wart Block in 1.10
@@ -1008,8 +969,8 @@ public class SoundEventHandler
         				return;
     	    		}
     	    	}
-    			
-    			
+
+
     			// --- Soul Sand --- //
     			if (
     					block_at_sound instanceof BlockSoulSand
@@ -1039,8 +1000,8 @@ public class SoundEventHandler
         				return;
     	    		}
     	    	}
-        		
-        		
+
+
         		// --- New Cave --- //
         		if (event.name.equals("ambient.cave.cave")
         				&& GeneralConfig.moreCaveSounds)
@@ -1054,8 +1015,8 @@ public class SoundEventHandler
     				event.result = null;
     				return;
         		}
-        		
-        		
+
+
             	// --- New Rain --- //
             	if (
             			event.name.equals("ambient.weather.rain")
@@ -1081,12 +1042,12 @@ public class SoundEventHandler
         						false);
             		}
             		else {return;}
-            		
+
     				event.result = null;
     				return;
         		}
-            	
-        		
+
+
         		// --- Breaking crops --- //
         		if (GeneralConfig.cropbreakingSounds)
         		{
@@ -1100,9 +1061,9 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.crop.break",
         						0.9F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
             		}
@@ -1118,14 +1079,14 @@ public class SoundEventHandler
         						0.9F,
         						0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
             		}
         		}
-        		
-        		
-        		
+
+
+
         		// --- Wooden chest --- //
         		if (
         				block_at_sound instanceof BlockChest
@@ -1139,16 +1100,16 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.chest.close",
         						0.5F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
         			}
         		}
-        		
-        		
-        		
+
+
+
         		// --- Ender Chest --- //
         		if (
         				block_at_sound instanceof BlockEnderChest
@@ -1162,9 +1123,9 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.ender_chest.open",
         						0.5F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
         			}
@@ -1174,16 +1135,16 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.ender_chest.close",
         						0.5F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
         			}
         		}
-        		
-        		
-        		
+
+
+
         		// --- Wooden door --- //
         		if (
         				block_at_sound instanceof BlockDoor
@@ -1198,9 +1159,9 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.wooden_door.open" + (GeneralConfig.woodendoorSounds_legacy ? ".legacy" : ""),
         						1.0F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
         			}
@@ -1210,16 +1171,16 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.wooden_door.close" + (GeneralConfig.woodendoorSounds_legacy ? ".legacy" : "") + (GeneralConfig.woodendoorSounds_modern ? ".modern" : ""),
         						1.0F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
         			}
         		}
 
-        		
-        		
+
+
         		// --- Fence gate --- //
         		if (
         				block_at_sound instanceof BlockFenceGate
@@ -1232,9 +1193,9 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.fence_gate.open",
         						1.0F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
         			}
@@ -1244,16 +1205,16 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.fence_gate.close",
         						1.0F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
         			}
         		}
-        		
-        		
-        		
+
+
+
         		// --- Iron door --- //
         		if (
         				block_at_sound instanceof BlockDoor
@@ -1267,9 +1228,9 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.iron_door.open",
         						1.0F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
         			}
@@ -1279,15 +1240,15 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.iron_door.close",
         						1.0F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
         			}
         		}
-        		
-        		
+
+
         		// --- Wooden trapdoor --- //
         		if (
         				block_at_sound instanceof BlockTrapDoor
@@ -1301,9 +1262,9 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.wooden_trapdoor.open",
         						1.0F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
         			}
@@ -1313,15 +1274,15 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.wooden_trapdoor.close",
         						1.0F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
         			}
         		}
-        		
-        		    		
+
+
         		// --- Iron trapdoor --- //
         		if (
         				block_at_sound instanceof BlockTrapDoor
@@ -1335,9 +1296,9 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.iron_trapdoor.open",
         						1.0F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
         				return;
         			}
@@ -1347,18 +1308,17 @@ public class SoundEventHandler
         						soundX, soundY, soundZ,
         						Reference.MOD_ID+":block.iron_trapdoor.close",
         						1.0F,
-        						world.rand.nextFloat() * 0.1F + 0.9F, 
+        						world.rand.nextFloat() * 0.1F + 0.9F,
         						false);
-        				
+
         				event.result = null;
-        				return;
-        			}
+                    }
         		}
     		}
     	}
     }
-    
-    
+
+
 	@SubscribeEvent
 	public void onPlaySoundAtEntity(PlaySoundAtEntityEvent event)
 	{
@@ -1370,9 +1330,9 @@ public class SoundEventHandler
 					&& GeneralConfig.horsefeedingSounds
 					)
 			{
-				float horseVolume = getEntityLivingVolume((EntityHorse)event.entity, EntityLivingBase.class);
-				float horsePitch = getEntityLivingPitch((EntityHorse)event.entity, EntityLivingBase.class);
-				
+                float horseVolume = getEntityLivingVolume((EntityHorse)event.entity, EntityLivingBase.class);
+                float horsePitch = getEntityLivingPitch((EntityHorse)event.entity,EntityLivingBase.class);
+
 				// --- Horse eat --- //
 				if (event.name.equals("eating"))
 				{
@@ -1381,8 +1341,8 @@ public class SoundEventHandler
 					return;
 				}
 			}
-						
-			
+
+
 			// --- Witch --- //
 			if (
 					event.entity instanceof EntityWitch
@@ -1391,7 +1351,7 @@ public class SoundEventHandler
 			{
 				float witchVolume = getEntityLivingVolume((EntityWitch)event.entity, EntityLivingBase.class);
 				float witchPitch = getEntityLivingPitch((EntityWitch)event.entity, EntityLivingBase.class);
-				
+
 				// --- Witch idle --- //
 				if (event.name.equals("mob.witch.idle"))
 				{
@@ -1399,7 +1359,7 @@ public class SoundEventHandler
 					event.entity.playSound(Reference.MOD_ID+":entity.witch.ambient", witchVolume, witchPitch);
 					return;
 				}
-				
+
 				// --- Witch hurt --- //
 				if (event.name.equals("mob.witch.hurt"))
 				{
@@ -1407,7 +1367,7 @@ public class SoundEventHandler
 					event.entity.playSound(Reference.MOD_ID+":entity.witch.hurt", witchVolume, witchPitch);
 					return;
 				}
-				
+
 				// --- Witch death --- //
 				if (event.name.equals("mob.witch.death"))
 				{
@@ -1415,10 +1375,10 @@ public class SoundEventHandler
 					event.entity.playSound(Reference.MOD_ID+":entity.witch.death", witchVolume, witchPitch);
 					return;
 				}
-				
+
 			}
-			
-			
+
+
 			// --- Wither Skeleton --- //
 			if (
 					event.entity instanceof EntitySkeleton
@@ -1428,7 +1388,7 @@ public class SoundEventHandler
 			{
 				float skeletonVolume = getEntityLivingVolume((EntitySkeleton)event.entity, EntityLivingBase.class);
 				float skeletonPitch = getEntityLivingPitch((EntitySkeleton)event.entity, EntityLivingBase.class);
-				
+
 				// -- Wither Skeleton Ambient -- //
 				if (event.name.equals("mob.skeleton.say"))
 				{
@@ -1436,7 +1396,7 @@ public class SoundEventHandler
 					event.entity.playSound(Reference.MOD_ID+":entity.wither_skeleton.ambient", skeletonVolume, skeletonPitch);
 					return;
 				}
-				
+
 				// -- Wither Skeleton Hurt -- //
 				if (event.name.equals("mob.skeleton.hurt"))
 				{
@@ -1460,9 +1420,9 @@ public class SoundEventHandler
 					event.entity.playSound(Reference.MOD_ID+":entity.wither_skeleton.step", 0.15F, skeletonPitch);
 					return;
 				}
-				
+
 			}
-			
+
 			// --- Thorns enchantment --- //
 			if (
 					event.name.equals("damage.thorns")
@@ -1471,17 +1431,22 @@ public class SoundEventHandler
 			{
 				event.setCanceled(true);
 				event.entity.playSound(Reference.MOD_ID+":enchant.thorns", event.volume, event.pitch);
-				return;
-			}
-			
+            }
+
 		}
-		
+
 	}
-	
-	
+
+    private static Field despawnTimerField;
+
+    static {
+        try {
+            despawnTimerField = ReflectionHelper.findField(EntityEnderEye.class, "despawnTimer");
+        } catch (Exception e) {
+        }
+    }
 	@SubscribeEvent
-	public void onLivingUpdateEvent(LivingUpdateEvent event)
-	{
+	public void onLivingUpdateEvent(LivingUpdateEvent event) throws IllegalAccessException {
 		if (!event.entityLiving.worldObj.isRemote)
 		{
 			// --- Witch drink potion --- //
@@ -1491,49 +1456,36 @@ public class SoundEventHandler
 					)
 			{
 				EntityWitch witch = (EntityWitch)event.entityLiving;
-				
+
 				int witchAttackTimer_reflected = ReflectionHelper.getPrivateValue(EntityWitch.class, witch, new String[]{"witchAttackTimer",  "field_82200_e"});
-				
+
 				if (witch.getAggressive() && witchAttackTimer_reflected==0)
 				{
 					event.entity.playSound(Reference.MOD_ID+":entity.witch.drink", getEntityLivingVolume(witch, EntityLivingBase.class), getEntityLivingPitch(witch, EntityLivingBase.class));
 				}
-				
+
 				return;
 			}
-			
+
 
 			// --- Squid ambient --- //
-			if ( 
-					event.entity instanceof EntitySquid
-					&& GeneralConfig.squidSounds
-					)
-			{
-				Random rand;
-				
-				try {rand = ReflectionHelper.getPrivateValue(Entity.class, event.entity, new String[]{"rand", "field_70146_Z"});}
-				catch (Exception e) {rand = event.entity.worldObj.rand;}
-				
-				if (event.entity.isEntityAlive() && rand.nextInt(1000) < ((EntityLiving)event.entityLiving).livingSoundTime++)
-				{
-					event.entity.playSound(Reference.MOD_ID+":entity.squid.ambient", getEntityLivingVolume((EntitySquid)event.entity, EntitySquid.class), getEntityLivingPitch((EntityLivingBase)event.entity, EntityLivingBase.class));
-					((EntityLiving)event.entityLiving).livingSoundTime = -((EntityLiving)event.entityLiving).getTalkInterval();
-				}
-				
-				return;
-			}
-			
-			
+            if (event.entity instanceof EntitySquid && GeneralConfig.squidSounds) {
+                Random rand = event.entity.worldObj.rand;
+                if (event.entity.isEntityAlive() && rand.nextInt(1000) < ((EntityLiving)event.entityLiving).livingSoundTime++) {
+                    event.entity.playSound(Reference.MOD_ID + ":entity.squid.ambient", getEntityLivingVolume((EntitySquid)event.entity, EntitySquid.class), getEntityLivingPitch((EntityLivingBase)event.entity, EntityLivingBase.class));
+                    ((EntityLiving)event.entityLiving).livingSoundTime = -((EntityLiving)event.entityLiving).getTalkInterval();
+                }
+                return;
+            }
+
 			if (event.entity instanceof EntityPlayer)
 			{
 				EntityPlayer player = (EntityPlayer)event.entity;
-				
-				
+
+
 	    		// --- Armor Equip --- //
 	    		if (
-	    				player!=null
-	    				&& player.worldObj != null
-	    				&& (GeneralConfig.armorequipSounds)
+                    player.worldObj != null && GeneralConfig.armorequipSounds
 	    				)
 	    		{
 	    			// Items currently on the player
@@ -1541,29 +1493,26 @@ public class SoundEventHandler
 					ItemStack playerLeggings = player.getEquipmentInSlot(2);
 					ItemStack playerChestplate = player.getEquipmentInSlot(3);
 					ItemStack playerHelmet = player.getEquipmentInSlot(4);
-					
+
 					// Items attached to the player as an IEEP tag
 					PlayerArmorTracker ipat = PlayerArmorTracker.get(player);
 					ItemStack storedBoots = ItemStack.loadItemStackFromNBT(ipat.getBoots());
 					ItemStack storedLeggings = ItemStack.loadItemStackFromNBT(ipat.getLeggings());
 					ItemStack storedChestplate = ItemStack.loadItemStackFromNBT(ipat.getChestplate());
 					ItemStack storedHelmet = ItemStack.loadItemStackFromNBT(ipat.getHelmet());
-					
+
 					String itemEquippedSound = "";
-					
+
 					// --- Boots --- //
-					if (
-							playerBoots!=null // Equipment is in the slot
-							&& (
-									storedBoots==null // and either the NBT thinks there's not an item already there,
-											// or that the item is different in some way...
-									|| (storedBoots!=null 
-											&& (    // ...that's not its durability.
-													!playerBoots.getItem().equals(storedBoots.getItem())
-													|| !(playerBoots.stackTagCompound == null && storedBoots.stackTagCompound != null ? false : playerBoots.stackTagCompound == null || playerBoots.stackTagCompound.equals(storedBoots.stackTagCompound))
-													)
-											)
-									)
+                    // Equipment is in the slot
+                    // and either the NBT thinks there's not an item already there,
+                    // or that the item is different in some way...
+                    // ...that's not its durability.
+                    // ...that's not its durability.
+                    if (
+                        playerBoots != null && (
+                            storedBoots == null || !Objects.equals(playerBoots.getItem(), storedBoots.getItem()) || !((playerBoots.stackTagCompound != null || storedBoots.stackTagCompound == null) && (playerBoots.stackTagCompound == null || playerBoots.stackTagCompound.equals(storedBoots.stackTagCompound)))
+                        )
 							)
 					{
 						     if (playerBoots.getItem()==Items.chainmail_boots) {itemEquippedSound = "item.armor.equip_chain";}
@@ -1573,23 +1522,20 @@ public class SoundEventHandler
 						else if (playerBoots.getItem()==Items.leather_boots)   {itemEquippedSound = "item.armor.equip_leather";}
 						else                                                   {itemEquippedSound = "item.armor.equip_generic";}
 					}
-					
+
 					// Update the stored itemstack if it's changed, regardless of if you should make a noise
 					if (!ItemStack.areItemStacksEqual(playerBoots, storedBoots)) {ipat.setBoots(PlayerArmorTracker.saveItemStackToNBT(playerBoots));}
-					
+
 					// --- Leggings --- //
-					if (
-							playerLeggings!=null // Equipment is in the slot
-							&& (
-									storedLeggings==null // and either the NBT thinks there's not an item already there,
-											// or that the item is different in some way...
-									|| (storedLeggings!=null 
-											&& (    // ...that's not its durability.
-													!playerLeggings.getItem().equals(storedLeggings.getItem())
-													|| !(playerLeggings.stackTagCompound == null && storedLeggings.stackTagCompound != null ? false : playerLeggings.stackTagCompound == null || playerLeggings.stackTagCompound.equals(storedLeggings.stackTagCompound))
-													)
-											)
-									)
+                    // Equipment is in the slot
+                    // and either the NBT thinks there's not an item already there,
+                    // or that the item is different in some way...
+                    // ...that's not its durability.
+                    // ...that's not its durability.
+                    if (
+                        playerLeggings != null && (
+                            storedLeggings == null || !Objects.equals(playerLeggings.getItem(), storedLeggings.getItem()) || !((playerLeggings.stackTagCompound != null || storedLeggings.stackTagCompound == null) && (playerLeggings.stackTagCompound == null || playerLeggings.stackTagCompound.equals(storedLeggings.stackTagCompound)))
+                        )
 							)
 					{
 						     if (playerLeggings.getItem()==Items.chainmail_leggings) {itemEquippedSound = "item.armor.equip_chain";}
@@ -1599,23 +1545,20 @@ public class SoundEventHandler
 						else if (playerLeggings.getItem()==Items.leather_leggings)   {itemEquippedSound = "item.armor.equip_leather";}
 						else                                                         {itemEquippedSound = "item.armor.equip_generic";}
 					}
-					
+
 					// Update the stored itemstack if it's changed, regardless of if you should make a noise
 					if (!ItemStack.areItemStacksEqual(playerLeggings, storedLeggings)) {ipat.setLeggings(PlayerArmorTracker.saveItemStackToNBT(playerLeggings));}
-					
+
 					// --- Chestplate --- //
-					if (
-							playerChestplate!=null // Equipment is in the slot
-							&& (
-									storedChestplate==null // and either the NBT thinks there's not an item already there,
-											// or that the item is different in some way...
-									|| (storedChestplate!=null 
-											&& (    // ...that's not its durability.
-													!playerChestplate.getItem().equals(storedChestplate.getItem())
-													|| !(playerChestplate.stackTagCompound == null && storedChestplate.stackTagCompound != null ? false : playerChestplate.stackTagCompound == null || playerChestplate.stackTagCompound.equals(storedChestplate.stackTagCompound))
-													)
-											)
-									)
+                    // Equipment is in the slot
+                    // and either the NBT thinks there's not an item already there,
+                    // or that the item is different in some way...
+                    // ...that's not its durability.
+                    // ...that's not its durability.
+                    if (
+                        playerChestplate != null && (
+                            storedChestplate == null || !Objects.equals(playerChestplate.getItem(), storedChestplate.getItem()) || !((playerChestplate.stackTagCompound != null || storedChestplate.stackTagCompound == null) && (playerChestplate.stackTagCompound == null || playerChestplate.stackTagCompound.equals(storedChestplate.stackTagCompound)))
+                        )
 							)
 					{
 						     if (playerChestplate.getItem()==Items.chainmail_chestplate) {itemEquippedSound = "item.armor.equip_chain";}
@@ -1623,27 +1566,24 @@ public class SoundEventHandler
 						else if (playerChestplate.getItem()==Items.golden_chestplate)    {itemEquippedSound = "item.armor.equip_gold";}
 						else if (playerChestplate.getItem()==Items.iron_chestplate)      {itemEquippedSound = "item.armor.equip_iron";}
 						else if (playerChestplate.getItem()==Items.leather_chestplate)   {itemEquippedSound = "item.armor.equip_leather";}
-						else if (playerChestplate.getItem().getUnlocalizedName().toLowerCase().contains("elytra"))
+						else if (Objects.requireNonNull(playerChestplate.getItem()).getUnlocalizedName().toLowerCase().contains("elytra"))
 																						 {itemEquippedSound = "item.armor.equip_elytra";} // Elytra is its own sound event
 						else                                                             {itemEquippedSound = "item.armor.equip_generic";}
 					}
-					
+
 					// Update the stored itemstack if it's changed, regardless of if you should make a noise
 					if (!ItemStack.areItemStacksEqual(playerChestplate, storedChestplate)) {ipat.setChestplate(PlayerArmorTracker.saveItemStackToNBT(playerChestplate));}
-					
+
 					// --- Helmet --- //
-					if (
-							playerHelmet!=null // Equipment is in the slot
-							&& (
-									storedHelmet==null // and either the NBT thinks there's not an item already there,
-											// or that the item is different in some way...
-									|| (storedHelmet!=null 
-											&& (    // ...that's not its durability.
-													!playerHelmet.getItem().equals(storedHelmet.getItem())
-													|| !(playerHelmet.stackTagCompound == null && storedHelmet.stackTagCompound != null ? false : playerHelmet.stackTagCompound == null || playerHelmet.stackTagCompound.equals(storedHelmet.stackTagCompound))
-													)
-											)
-									)
+                    // Equipment is in the slot
+                    // and either the NBT thinks there's not an item already there,
+                    // or that the item is different in some way...
+                    // ...that's not its durability.
+                    // ...that's not its durability.
+                    if (
+                        playerHelmet != null && (
+                            storedHelmet == null || !Objects.equals(playerHelmet.getItem(), storedHelmet.getItem()) || !((playerHelmet.stackTagCompound != null || storedHelmet.stackTagCompound == null) && (playerHelmet.stackTagCompound == null || playerHelmet.stackTagCompound.equals(storedHelmet.stackTagCompound)))
+                        )
 							)
 					{
 						     if (playerHelmet.getItem()==Items.chainmail_helmet) {itemEquippedSound = "item.armor.equip_chain";}
@@ -1653,10 +1593,10 @@ public class SoundEventHandler
 						else if (playerHelmet.getItem()==Items.leather_helmet)   {itemEquippedSound = "item.armor.equip_leather";}
 						else                                                     {itemEquippedSound = "item.armor.equip_generic";}
 					}
-					
+
 					// Update the stored itemstack if it's changed, regardless of if you should make a noise
 					if (!ItemStack.areItemStacksEqual(playerHelmet, storedHelmet)) {ipat.setHelmet(PlayerArmorTracker.saveItemStackToNBT(playerHelmet));}
-					
+
 					// Play a sound if one of the equipment pieces changed
 					if (
 							!itemEquippedSound.equals("")
@@ -1667,61 +1607,57 @@ public class SoundEventHandler
 		    					Reference.MOD_ID+":"+itemEquippedSound, 1F, 1F);
 						return;
 					}
-					
+
 	    		}
-				
-	    		
+
+
 				// --- Ender Eye bursts --- //
 				if (GeneralConfig.endereyelaunchSounds)
 				{
-					List<EntityPlayer> allPlayers = Lists.<EntityPlayer>newArrayList();
-					
-			        for (Object entity : player.worldObj.playerEntities)
+					List<EntityPlayer> allPlayers = Lists.newArrayList();
+
+                    assert player.worldObj != null;
+                    for (Object entity : player.worldObj.playerEntities)
 			        {
 			            if ( (EntityPlayer.class).isAssignableFrom(entity.getClass()) )
 			            {
 			            	allPlayers.add((EntityPlayer)entity);
 			            }
 			        }
-			        
+
 			        for (EntityPlayer playerInServerList : allPlayers)
 			        {
 			        	World world = player.worldObj;
-			        	
-			        	List listEnderEyesInRange = world.getEntitiesWithinAABB(
+
+                        double enderEyeSoundRadius = 18.0D;
+                        List listEnderEyesInRange = world.getEntitiesWithinAABB(
 			    				EntityEnderEye.class, AxisAlignedBB.getBoundingBox(
 			    						playerInServerList.posX - enderEyeSoundRadius, playerInServerList.posY - enderEyeSoundRadius, playerInServerList.posZ - enderEyeSoundRadius,
 			    						playerInServerList.posX + enderEyeSoundRadius, playerInServerList.posY + enderEyeSoundRadius, playerInServerList.posZ + enderEyeSoundRadius
 			    						)
 			    				);
-			        	
-			        	if (listEnderEyesInRange != null)
-			        	{
-			        		Iterator iterator = listEnderEyesInRange.iterator();
-			        		
-			        		while (iterator.hasNext())
-			        		{
-			                	EntityEnderEye entityendereye = (EntityEnderEye)iterator.next();
-			                	
-			                	double eyeX = entityendereye.posX;
-			                	double eyeY = entityendereye.posY;
-			                	double eyeZ = entityendereye.posZ;
-			                	int despawnTimer_reflected = -1;
-			                	
-			                	if (
-			                			(playerInServerList.posX-eyeX)*(playerInServerList.posX-eyeX) +
-			                			(playerInServerList.posY-eyeY)*(playerInServerList.posY-eyeY) +
-			                			(playerInServerList.posZ-eyeZ)*(playerInServerList.posZ-eyeZ)
-			                			<= enderEyeSoundRadius*enderEyeSoundRadius
-			                			)
-			                	{
-			                		try {despawnTimer_reflected = ReflectionHelper.getPrivateValue(EntityEnderEye.class, entityendereye, new String[]{"despawnTimer", "field_70223_e"});}
-			                        catch (Exception e) {} // Could not extract the despawnTimer value
-			                		
-			                		if (despawnTimer_reflected==80)
+
+                        if (listEnderEyesInRange != null) {
+                            Iterator iterator = listEnderEyesInRange.iterator();
+
+                            while (iterator.hasNext()) {
+                                EntityEnderEye entityendereye = (EntityEnderEye) iterator.next();
+
+                                double eyeX = entityendereye.posX;
+                                double eyeY = entityendereye.posY;
+                                double eyeZ = entityendereye.posZ;
+
+                                if ((playerInServerList.posX - eyeX) * (playerInServerList.posX - eyeX)
+                                    + (playerInServerList.posY - eyeY) * (playerInServerList.posY - eyeY)
+                                    + (playerInServerList.posZ - eyeZ) * (playerInServerList.posZ - eyeZ)
+                                    <= enderEyeSoundRadius * enderEyeSoundRadius) {
+
+                                    int despawnTimer = despawnTimerField.getInt(entityendereye);
+
+                                    if (despawnTimer == 80)
 			                		{
 			                			// Get a list of every player in range of the eye
-			                			
+
 			        		    		List listPlayersInRange = world.getEntitiesWithinAABB(
 			        		    				EntityPlayer.class, AxisAlignedBB.getBoundingBox(
 			        		    						eyeX - enderEyeSoundRadius, eyeY - enderEyeSoundRadius, eyeZ - enderEyeSoundRadius,
@@ -1747,7 +1683,7 @@ public class SoundEventHandler
 			}
 		}
 	}
-	
+
 
 	@SubscribeEvent
 	public void onLivingHurtEvent(LivingHurtEvent event)
@@ -1767,18 +1703,18 @@ public class SoundEventHandler
 						event.entity.posY,
 						event.entity.posZ,
 						Reference.MOD_ID+":entity.player.hurt_drown",
-						getEntityLivingVolume((EntityLivingBase)event.entity, EntityLivingBase.class),
-						getEntityLivingPitch((EntityLivingBase)event.entity, EntityLivingBase.class)
+						getEntityLivingVolume((EntityLivingBase)event.entity,EntityLivingBase.class),
+						getEntityLivingPitch((EntityLivingBase)event.entity,EntityLivingBase.class)
 						);
 				return;
     		}
-        	
-			
+
+
 			// --- Player on FiRe --- //
 			if (
 					//event.entity instanceof EntityPlayer &&
 					event.entity.worldObj != null &&
-					(event.source.damageType.equals("onFire") || event.source.damageType.equals("inFire")) // Burning sound when IN fire 
+					(event.source.damageType.equals("onFire") || event.source.damageType.equals("inFire")) // Burning sound when IN fire
     				&& GeneralConfig.onfireSounds
     				)
     		{
@@ -1787,37 +1723,37 @@ public class SoundEventHandler
 						event.entity.posY,
 						event.entity.posZ,
 						Reference.MOD_ID+":entity.player.hurt_on_fire",
-						getEntityLivingVolume((EntityLivingBase)event.entity, EntityLivingBase.class),
-						getEntityLivingPitch((EntityLivingBase)event.entity, EntityLivingBase.class)
+						getEntityLivingVolume((EntityLivingBase)event.entity,EntityLivingBase.class),
+						getEntityLivingPitch((EntityLivingBase)event.entity,EntityLivingBase.class)
 						);
 				return;
     		}
-			
-			
+
+
 			// --- Damage via Thorns --- //
 			if (
 					event.source.damageType.equals("thorns")
 					&& GeneralConfig.thornsSound
 					)
 			{
-				event.source.getEntity().playSound(Reference.MOD_ID+":enchant.thorns", 
-						event.source.getEntity() instanceof EntityLivingBase ? getEntityLivingVolume((EntityLivingBase)event.source.getEntity(), EntityLivingBase.class) : 1F,
-						(event.entity.worldObj.rand.nextFloat() - event.entity.worldObj.rand.nextFloat()) * 0.2F + 1.0F);
-				
+				event.source.getEntity().playSound(Reference.MOD_ID+":enchant.thorns",
+                    event.source.getEntity() instanceof EntityLivingBase ? getEntityLivingVolume((EntityLivingBase)event.source.getEntity(), EntityLivingBase.class) : 1F,
+                    (event.entity.worldObj.rand.nextFloat() - event.entity.worldObj.rand.nextFloat()) * 0.2F + 1.0F);
+
 				return;
 			}
-			
-			
+
+
 			// --- Squid hurt --- //
 			if (event.entity instanceof EntitySquid && ((EntityLiving)event.entity).getHealth()-event.ammount > 0
 					&& GeneralConfig.squidSounds
 					)
 			{
-				event.entity.playSound(Reference.MOD_ID+":entity.squid.hurt", getEntityLivingVolume((EntitySquid)event.entity, EntitySquid.class), getEntityLivingPitch((EntityLivingBase)event.entity, EntityLivingBase.class));
+				event.entity.playSound(Reference.MOD_ID+":entity.squid.hurt", getEntityLivingVolume((EntitySquid)event.entity, EntitySquid.class), getEntityLivingPitch((EntityLivingBase)event.entity,EntityLivingBase.class));
 				return;
 			}
-			
-			
+
+
 			// --- Snow Golem hurt --- //
 			if (event.entity instanceof EntitySnowman && ((EntityLiving)event.entity).getHealth()-event.ammount > 0
 					&& GeneralConfig.snowgolemSounds
@@ -1825,13 +1761,13 @@ public class SoundEventHandler
 			{
 				event.entity.playSound(
 						Reference.MOD_ID+":entity.snow_golem.hurt",
-						getEntityLivingVolume((EntityLivingBase)event.entity, EntityLivingBase.class),
-						getEntityLivingPitch((EntityLivingBase)event.entity, EntityLivingBase.class)
+						getEntityLivingVolume((EntityLivingBase)event.entity,EntityLivingBase.class),
+						getEntityLivingPitch((EntityLivingBase)event.entity,EntityLivingBase.class)
 						);
 				return;
 			}
-			
-			
+
+
 			// --- Attack a living entity --- //
 			if (
 					event.source.damageType.equals("player")
@@ -1841,7 +1777,7 @@ public class SoundEventHandler
 				Entity targetEntity = event.entity;
 				EntityPlayer playerSource = (EntityPlayer) event.source.getEntity();
 				World world = playerSource.worldObj;
-				
+
 				if (targetEntity.canAttackWithItem())
 				{
 					if (!targetEntity.hitByEntity(playerSource))
@@ -1853,19 +1789,20 @@ public class SoundEventHandler
 						{
 							enchantmentDamage = EnchantmentHelper.getEnchantmentModifierLiving(playerSource, (EntityLivingBase)targetEntity);
 						}
-						
+
 						if (attackDamage > 0.0F || enchantmentDamage > 0.0F)
 						{
-							boolean isStrongAttack = 
+							boolean isStrongAttack =
 									(
 											playerSource.getHeldItem() != null
 											&& playerSource.getHeldItem().getItem() instanceof ItemSword
 											&& GeneralConfig.playerStrongOnSword)
 									|| event.ammount >= GeneralConfig.playerStrongThreshold; //f2 > 0.9F;
-							
+
 							// Knockback degree
-							int i = EnchantmentHelper.getKnockbackModifier(playerSource, (EntityLivingBase)targetEntity);
-							
+                            assert targetEntity instanceof EntityLivingBase;
+                            int i = EnchantmentHelper.getKnockbackModifier(playerSource, (EntityLivingBase)targetEntity);
+
 							if (playerSource.isSprinting())
 							{
 								// --- Knockback attack sound --- //
@@ -1874,10 +1811,10 @@ public class SoundEventHandler
 										, targetEntity.posY
 										, targetEntity.posZ
 										, Reference.MOD_ID+":entity.player.attack.knockback", 0.7F, 1.0F);
-								
+
 								++i;
 							}
-							
+
 							boolean isCriticalHit =
 									playerSource.fallDistance > 0.0F
 									&& !playerSource.onGround
@@ -1887,16 +1824,16 @@ public class SoundEventHandler
 									&& playerSource.ridingEntity == null
 									&& targetEntity instanceof EntityLivingBase
 									&& !playerSource.isSprinting(); // Added in 1.12
-							
+
 							if (isCriticalHit)
 							{
 								attackDamage *= 1.5F;
 							}
-							
+
 							attackDamage += enchantmentDamage;
-							
+
 							boolean targetTakesDamage = !targetEntity.isEntityInvulnerable() && event.ammount > 0F;//targetEntity.attackEntityFrom(DamageSource.causePlayerDamage(playerSource), f);
-							
+
 							if (targetTakesDamage)
 							{
 								if (isCriticalHit)
@@ -1908,7 +1845,7 @@ public class SoundEventHandler
 											, targetEntity.posZ
 											, Reference.MOD_ID+":entity.player.attack.crit", 0.7F, 1.0F);
 								}
-								
+
 								if (
 										!isCriticalHit // flag2 is critical hit in 1.12
 										//&& !flag3 // flag3 is sweeping hit in 1.12
@@ -1942,22 +1879,22 @@ public class SoundEventHandler
 										, targetEntity.posY
 										, targetEntity.posZ
 										, Reference.MOD_ID+":entity.player.attack.nodamage", 0.7F, 1.0F);
-							} 
+							}
 						}
 					}
 				}
 			}
 		}
 	}
-	
-	
+
+
 	@SubscribeEvent
 	public void onLivingDeathEvent(LivingDeathEvent event)
 	{
 		if (!event.entityLiving.worldObj.isRemote)
 		{
 			// --- Squid death --- //
-			if ( 
+			if (
 					event.entity instanceof EntitySquid
 					&& GeneralConfig.squidSounds
 					)
@@ -1965,29 +1902,28 @@ public class SoundEventHandler
 				event.entity.playSound(
 						Reference.MOD_ID+":entity.squid.death",
 						getEntityLivingVolume((EntitySquid)event.entity, EntitySquid.class),
-						getEntityLivingPitch((EntityLivingBase)event.entity, EntityLivingBase.class)
+						getEntityLivingPitch((EntityLivingBase)event.entity,EntityLivingBase.class)
 						);
 				return;
 			}
-			
-			
+
+
 			// --- Snow Golem death --- //
-			if ( 
+			if (
 					event.entity instanceof EntitySnowman
 					&& GeneralConfig.snowgolemSounds
 					)
 			{
 				event.entity.playSound(
 						Reference.MOD_ID+":entity.snow_golem.death",
-						getEntityLivingVolume((EntityLivingBase)event.entity, EntityLivingBase.class),
-						getEntityLivingPitch((EntityLivingBase)event.entity, EntityLivingBase.class)
+						getEntityLivingVolume((EntityLivingBase)event.entity,EntityLivingBase.class),
+						getEntityLivingPitch((EntityLivingBase)event.entity,EntityLivingBase.class)
 						);
-				return;
-			}
+            }
 		}
 	}
-	
-	
+
+
 	@SubscribeEvent
 	public void onAttackEntityEvent(AttackEntityEvent event) // Only fires when a player LEFT-CLICKS an entity.
 	{
@@ -2000,7 +1936,7 @@ public class SoundEventHandler
 					)
 			{
 				EntityItemFrame itemframe = (EntityItemFrame)event.target;
-				
+
 				if (itemframe.getDisplayedItem() != null)
 				{
 					event.target.playSound(Reference.MOD_ID+":entity.itemframe.remove_item", 1.0F, 1.0F);
@@ -2009,11 +1945,11 @@ public class SoundEventHandler
 				{
 					event.target.playSound(Reference.MOD_ID+":entity.itemframe.break", 1.0F, 1.0F);
 				}
-				
+
 				return;
 			}
 
-			
+
 			// --- Break a Lead Knot --- //
 			if (
 					event.target instanceof EntityLeashKnot
@@ -2023,8 +1959,8 @@ public class SoundEventHandler
 				event.target.playSound(Reference.MOD_ID+":entity.leashknot.break", 1.0F, 1.0F);
 				return;
 			}
-			
-			
+
+
 			// --- Break a painting (or some other hanging entity) --- //
 			if (
 					event.target instanceof EntityHanging
@@ -2032,23 +1968,22 @@ public class SoundEventHandler
 					)
 			{
 				event.target.playSound(Reference.MOD_ID+":entity.painting.break", 1.0F, 1.0F);
-				return;
-			}
+            }
 		}
 	}
-	
-	
+
+
 	@SubscribeEvent
 	public void onPlayerInteractEvent(PlayerInteractEvent event)
 	{
 		World world = event.world;
-		
+
 		if ( !world.isRemote )
 		{
 			EntityPlayer player = event.entityPlayer;
 			ItemStack itemStack = player.getHeldItem();
-			MovingObjectPosition movingobjectposition = getMovingObjectPositionFromPlayer(world, player, true);
-			
+			MovingObjectPosition movingobjectposition = getMovingObjectPositionFromPlayer(world, player);
+
 			// --- Place a lead knot --- //
 			if (	// This has to go FIRST in line, because the sound should play no matter what's in your hand.
 					isPlayerLeadingAnimal(player, world, event.x, event.y, event.z)
@@ -2064,16 +1999,16 @@ public class SoundEventHandler
 						, event.y + 0.5
 						, event.z + 0.5
 						, Reference.MOD_ID+":entity.leashknot.place", 1.0F, 1.0F);
-				
+
 				return;
 			}
-			
-			
+
+
 			// --- Hanging entities --- //
-			
+
 			String hangingSound="";
 			Class hangingEntityClass=null;
-			
+
 			// --- Place an item frame --- //
 			if (
 					itemStack != null &&
@@ -2085,8 +2020,8 @@ public class SoundEventHandler
 				hangingSound = "itemframe";
 				hangingEntityClass = EntityItemFrame.class;
 			}
-			
-			
+
+
 			// --- Place a painting --- //
 			if (
 					itemStack != null &&
@@ -2098,26 +2033,23 @@ public class SoundEventHandler
 				hangingSound = "painting";
 				hangingEntityClass = EntityPainting.class;
 			}
-			
-			if(hangingEntityClass!=null && !hangingSound.equals(""))
+
+			if(hangingEntityClass != null)
 			{
 				if (event.face == 0) {return;} // Can't be placed on the bottom
 		        else if (event.face == 1) {return;} // Can't be placed on the top
 		        else
 		        {
 		            int i1 = Direction.facingToDirection[event.face];
-		            
-		            EntityHanging entityhanging = (EntityHanging)
-		            		(hangingEntityClass == EntityPainting.class ?
-		            				new EntityPainting(world, event.x, event.y, event.z, i1) :
-		            					(hangingEntityClass == EntityItemFrame.class ?
-		            							new EntityItemFrame(world, event.x, event.y, event.z, i1) :
-		            								null));
-		            
+
+		            EntityHanging entityhanging = hangingEntityClass == EntityPainting.class ?
+                            new EntityPainting(world, event.x, event.y, event.z, i1) :
+new EntityItemFrame(world, event.x, event.y, event.z, i1);
+
 		            if (!player.canPlayerEdit(event.x, event.y, event.z, event.face, itemStack)) {return;} // Player can't modify this face
 		            else
 		            {
-		                if (entityhanging != null && entityhanging.onValidSurface())
+		                if (entityhanging.onValidSurface())
 		                {
 		                	// Play the sound here
 		                	world.playSoundEffect(
@@ -2131,14 +2063,14 @@ public class SoundEventHandler
 		            }
 		        }
 			}
-			
-			
+
+
 			// --- Play the stripped log sound here, cancel it in the client-side section --- //
 			if (
 					(Loader.isModLoaded("etfuturum") || Loader.isModLoaded("uptodate"))
 					&& itemStack != null
 					&& itemStack.getItem() instanceof ItemAxe
-					&& event.action == Action.RIGHT_CLICK_BLOCK 
+					&& event.action == Action.RIGHT_CLICK_BLOCK
 					&& (world.getBlock(event.x, event.y, event.z) == Blocks.log
 						|| world.getBlock(event.x, event.y, event.z) == Blocks.log2)
 					&& GeneralConfig.strippedlogSounds
@@ -2154,8 +2086,8 @@ public class SoundEventHandler
 						);
 				return;
 			}
-			
-			
+
+
 			// --- Place an Ender Eye into a portal frame block --- //
 			if (
 					itemStack != null
@@ -2164,7 +2096,7 @@ public class SoundEventHandler
 					)
 			{
 				if (
-						event.action == Action.RIGHT_CLICK_BLOCK 
+						event.action == Action.RIGHT_CLICK_BLOCK
 						&& world.getBlock(event.x, event.y, event.z) == Blocks.end_portal_frame
 						)
 				{
@@ -2176,10 +2108,10 @@ public class SoundEventHandler
 								, event.y + 0.5
 								, event.z + 0.5
 								, Reference.MOD_ID+":block.end_portal.eyeplace", 1.0F, 1.0F);
-						
+
 						// Check to see if a portal is opening
 						Integer[] portalCenter = endPortalTriggering(world, event.x, event.y, event.z);
-						
+
 						if (portalCenter != null)
 						{
 							world.playSoundEffect(
@@ -2189,13 +2121,13 @@ public class SoundEventHandler
 									, Reference.MOD_ID+":block.end_portal.endportal",
 									1.0F, 1.0F);
 						}
-						
+
 						return;
 					}
 				}
 			}
-			
-			
+
+
 			// --- Hoeing --- //
 			if (
 					itemStack != null
@@ -2205,7 +2137,7 @@ public class SoundEventHandler
 					)
 		    {
 				int side = event.face;
-				
+
 				if (side<=0) {return;} // I assume 0 means "bottom"
 				else if (player.canPlayerEdit(event.x, event.y, event.z, side, itemStack)
 		        		&& player.canPlayerEdit(event.x, event.y + 1, event.z, side, itemStack))
@@ -2226,8 +2158,8 @@ public class SoundEventHandler
 	            	}
 		        }
 		    }
-			
-			
+
+
 			// --- Redstone --- //
 			if(
 					itemStack != null
@@ -2239,7 +2171,7 @@ public class SoundEventHandler
 				int eventX_mutable = event.x;
 				int eventY_mutable = event.y;
 				int eventZ_mutable = event.z;
-				
+
 			    if (world.getBlock(eventX_mutable, eventY_mutable, eventZ_mutable) != Blocks.snow_layer)
 		        {
 			    	switch (event.face)
@@ -2263,7 +2195,7 @@ public class SoundEventHandler
 			    		++eventX_mutable;
 			    		break;
 			    	}
-			    	
+
 		            if (!world.isAirBlock(eventX_mutable, eventY_mutable, eventZ_mutable))
 		            {
 		            	// Can't put redstone here because it's not air
@@ -2290,12 +2222,12 @@ public class SoundEventHandler
 								1F, 1F);
 			            return;
 		            }
-		            
-		            
+
+
 		        }
 			}
-			
-			
+
+
 			// --- Planting --- //
 			if (
 					itemStack != null
@@ -2305,7 +2237,7 @@ public class SoundEventHandler
 					)
 		    {
 				int side = event.face;
-				
+
 				if (side != 1) {return;} // Must be top face
 		        else if (player.canPlayerEdit(event.x, event.y, event.z, side, itemStack)
 		        		&& player.canPlayerEdit(event.x, event.y + 1, event.z, side, itemStack))
@@ -2338,14 +2270,14 @@ public class SoundEventHandler
 		            }
 		        }
 		    }
-			
-			
+
+
 			// --- Lilypad sounds --- //
 			if (
 					itemStack != null
 					&& (
 							itemStack.getItem() == Item.getItemFromBlock(Blocks.waterlily)
-							|| itemStack.getItem().getUnlocalizedName().toLowerCase().contains("waterlily")
+							|| Objects.requireNonNull(itemStack.getItem()).getUnlocalizedName().toLowerCase().contains("waterlily")
 							|| itemStack.getItem().getUnlocalizedName().toLowerCase().contains("lilypad")
 							)
 					&& GeneralConfig.lilypadSounds
@@ -2359,32 +2291,28 @@ public class SoundEventHandler
 						int i = movingobjectposition.blockX;
 						int j = movingobjectposition.blockY;
 						int k = movingobjectposition.blockZ;
-						
+
 						if(!world.canMineBlock(player, i, j, k)) {return;}
 						if(!player.canPlayerEdit(i, j, k, movingobjectposition.sideHit, itemStack)) {return;}
-						
-						boolean isValidLilypadPlace = false;
-						
-						if(
-								world.getBlock(i, j, k) == Blocks.water
-								&& world.getBlock(i, j+1, k) == Blocks.air
-								) {isValidLilypadPlace = true;}
-						
-						if(isValidLilypadPlace && event.action == PlayerInteractEvent.Action.RIGHT_CLICK_AIR)
+
+						boolean isValidLilypadPlace = world.getBlock(i, j, k) == Blocks.water
+                            && world.getBlock(i, j + 1, k) == Blocks.air;
+
+                        if(isValidLilypadPlace && event.action == PlayerInteractEvent.Action.RIGHT_CLICK_AIR)
 						{
 							world.playSoundEffect(
 								player.posX
 								, player.posY
 								, player.posZ
 								, Reference.MOD_ID+":block.lily_pad.place", 1.0F, 1.0F);
-							
+
 							return;
 						}
 					}
 				}
 			}
-			
-			
+
+
 			// --- Bottle fill sounds --- //
 			if (
 					itemStack != null
@@ -2400,17 +2328,15 @@ public class SoundEventHandler
 						int i = movingobjectposition.blockX;
 						int j = movingobjectposition.blockY;
 						int k = movingobjectposition.blockZ;
-						
+
 						boolean isValidCauldron = (world.getBlock(i, j, k) == Blocks.cauldron && world.getBlockMetadata(i, j, k) > 0);
-						
+
 						if(!world.canMineBlock(player, i, j, k)) {return;}
 						if(!player.canPlayerEdit(i, j, k, movingobjectposition.sideHit, itemStack)) {return;}
-						
-						boolean isWater = false;
-						
-						if(world.getBlock(i, j, k) == Blocks.water || world.getBlock(i, j, k) == Blocks.flowing_water) {isWater = true;}
-						
-						if(
+
+						boolean isWater = world.getBlock(i, j, k) == Blocks.water || world.getBlock(i, j, k) == Blocks.flowing_water;
+
+                        if(
 								(isWater && event.action == PlayerInteractEvent.Action.RIGHT_CLICK_AIR) ||
 								(isValidCauldron && event.action == PlayerInteractEvent.Action.RIGHT_CLICK_BLOCK)
 								)
@@ -2420,14 +2346,14 @@ public class SoundEventHandler
 								, player.posY
 								, player.posZ
 								, Reference.MOD_ID+":item.bottle.fill", 1.0F, 1.0F);
-							
+
 							return;
 						}
 					}
 				}
 			}
-			
-			
+
+
 			// --- Bucketing water to/from a cauldron --- //
 			if (
 					itemStack != null
@@ -2446,9 +2372,9 @@ public class SoundEventHandler
 						int i = movingobjectposition.blockX;
 						int j = movingobjectposition.blockY;
 						int k = movingobjectposition.blockZ;
-						
+
 						boolean bucketIsFull = (itemStack.getItem()==Items.water_bucket);
-						
+
 						boolean isValidCauldron = (
 								world.getBlock(i, j, k) == Blocks.cauldron
 								&& (bucketIsFull ? world.getBlockMetadata(i, j, k)<3 : world.getBlockMetadata(i, j, k)==3)
@@ -2457,7 +2383,7 @@ public class SoundEventHandler
 						if(!world.canMineBlock(player, i, j, k)) {return;}
 
 						if(!player.canPlayerEdit(i, j, k, movingobjectposition.sideHit, itemStack)) {return;}
-						
+
 						if(isValidCauldron)
 						{
 							world.playSoundEffect(
@@ -2465,14 +2391,14 @@ public class SoundEventHandler
 									, player.posY
 									, player.posZ
 									, bucketIsFull ? Reference.MOD_ID+":item.bucket.pour_water" : Reference.MOD_ID+":item.bucket.fill_water", 1.0F, 1.0F);
-							
+
 							return;
 						}
 					}
 				}
 			}
-			
-			
+
+
 			// --- Fishing Line --- //
 			if (
 					itemStack != null
@@ -2497,24 +2423,23 @@ public class SoundEventHandler
     						, player.posZ
     						, Reference.MOD_ID+":entity.fishing_bobber.retrieve", 1.0F, 1.0F);
 				}
-				return;
-			}
+            }
 		}
 	}
-	
-	
+
+
 	@SubscribeEvent
 	public void onEntityInteractEvent(EntityInteractEvent event) // Only fires when a player RIGHT-CLICKS an entity.
 	{
 		World world = event.target.worldObj;
-		
+
 		if (!world.isRemote)
 		{
 			Entity target = event.target;
 			EntityPlayer player = event.entityPlayer;
 			ItemStack heldItemStack = player.getHeldItem();//.getHeldItem(); // Changed this out because of walking on top of stripped logs
-			
-			
+
+
 			// --- Milk Mooshroom --- //
 			if (
 					target instanceof EntityMooshroom
@@ -2529,11 +2454,11 @@ public class SoundEventHandler
 						, target.posY
 						, target.posZ
 						, Reference.MOD_ID+":entity.mooshroom.milk", 1.0F, 0.9F + (world.rand.nextInt(3)-1)*0.1F);
-				
+
 				return;
 			}
-			
-			
+
+
 			// --- Milk Cow --- //
 			if (
 					target instanceof EntityCow
@@ -2548,11 +2473,11 @@ public class SoundEventHandler
 						, target.posY
 						, target.posZ
 						, Reference.MOD_ID+":entity.cow.milk", 1.0F, 1.0F);
-				
+
 				return;
 			}
-						
-			
+
+
 			// --- Add/Rotate within Item Frame --- //
 			if (
 					target instanceof EntityItemFrame
@@ -2560,7 +2485,7 @@ public class SoundEventHandler
 					) // Only fires when a player RIGHT-CLICKS a hanging entity.
 			{
 				EntityItemFrame itemframe = (EntityItemFrame)target;
-				
+
 				if (
 						heldItemStack != null
 						&& itemframe.getDisplayedItem() == null
@@ -2571,10 +2496,10 @@ public class SoundEventHandler
 							, target.posY + 0.5
 							, target.posZ + 0.5
 							, Reference.MOD_ID+":entity.itemframe.add_item", 1.0F, 1.0F);
-					
+
 					return;
 				}
-				
+
 				if (itemframe.getDisplayedItem() != null) // There is an item in there. Rotate it.
 				{
 					world.playSoundEffect(
@@ -2586,8 +2511,8 @@ public class SoundEventHandler
 					return;
 				}
 			}
-			
-			
+
+
 			// --- Remove a Lead Knot --- //
 			if (
 					target instanceof EntityLeashKnot
@@ -2599,13 +2524,12 @@ public class SoundEventHandler
 						, target.posY + 0.5
 						, target.posZ + 0.5
 						, Reference.MOD_ID+":entity.leashknot.break", 1.0F, 1.0F);
-				
-				return;
+
 			}
 		}
 	}
-	
-	
+
+
 	@SubscribeEvent
 	public void onEntityJoinWorldEvent(EntityJoinWorldEvent event)
 	{
@@ -2622,26 +2546,39 @@ public class SoundEventHandler
 						, event.entity.posY
 						, event.entity.posZ
 						, Reference.MOD_ID+":entity.endereye.endereye_launch", 1.0F, 1.0F);
-				
-				return;
+
+
 			}
 		}
 	}
-	
+    private static Field isFullField;
+
+    static {
+        try {
+            isFullField = ReflectionHelper.findField(ItemBucket.class, "field_77876_a");
+        } catch (Exception e) {
+
+        }
+    }
+
 	@SubscribeEvent
 	public void onFillBucketEvent(FillBucketEvent event)
 	{
-		Block isFull = Blocks.air;
-		try {isFull = ReflectionHelper.getPrivateValue(ItemBucket.class, (ItemBucket)event.current.getItem(), new String[]{"isFull", "field_77876_a"});}
-		catch (Exception e) {}
-		
+        Block isFull = Blocks.air;
+        try {
+            if (isFullField != null) {
+                isFull = (Block) isFullField.get(event.current.getItem());
+            }
+        } catch (Exception e) {
+        }
+
 		if (!event.world.isRemote)
 		{
 			MovingObjectPosition target = event.target;
-			
-			
+
+
 			// --- Pour water --- //
-			if ( 
+			if (
 					GeneralConfig.bucketSounds &&
 					event.current.getItem()==Items.water_bucket
 					)
@@ -2651,13 +2588,13 @@ public class SoundEventHandler
 						, target.blockY + 0.5
 						, target.blockZ + 0.5
 						, Reference.MOD_ID+":item.bucket.pour_water", 1.0F, 1.0F);
-				
+
 				return;
 			}
-			
-			
+
+
 			// --- Pour something else --- //
-			if ( 
+			if (
 					GeneralConfig.bucketSounds //&&
 					&& !(isFull == Blocks.air)
 					)
@@ -2667,13 +2604,13 @@ public class SoundEventHandler
 							, target.blockY + 0.5
 							, target.blockZ + 0.5
 							, Reference.MOD_ID+":item.bucket.pour_lava", 1.0F, 1.0F);
-				
+
 				return;
 			}
-			
-			
+
+
 			// --- Fill with water --- //
-			if ( 
+			if (
 					GeneralConfig.bucketSounds &&
 					event.current.getItem()==Items.bucket
 					&& event.world.getBlock(target.blockX, target.blockY, target.blockZ).getMaterial() == Material.water
@@ -2684,13 +2621,13 @@ public class SoundEventHandler
 							, target.blockY + 0.5
 							, target.blockZ + 0.5
 							, Reference.MOD_ID+":item.bucket.fill_water", 1.0F, 1.0F);
-				
+
 				return;
 			}
-			
-			
+
+
 			// --- Fill with something else --- //
-			if ( 
+			if (
 					GeneralConfig.bucketSounds &&
 					event.current.getItem()==Items.bucket
 					&& event.world.getBlock(target.blockX, target.blockY, target.blockZ).getMaterial().isLiquid()
@@ -2701,13 +2638,13 @@ public class SoundEventHandler
 							, target.blockY + 0.5
 							, target.blockZ + 0.5
 							, Reference.MOD_ID+":item.bucket.fill_lava", 1.0F, 1.0F);
-				
-				return;
+
+
 			}
 		}
 	}
-	
-	
+
+
     /**
      * For attaching IEEP - v2.0.0
      */
@@ -2719,10 +2656,10 @@ public class SoundEventHandler
     		PlayerArmorTracker.register((EntityPlayer) event.entity);
     	}
     }
-	
-	
+
+
 	// Pasted this in from Item.class because the vanilla version is protected
-	protected static MovingObjectPosition getMovingObjectPositionFromPlayer(World worldIn, EntityPlayer playerIn, boolean useLiquids)
+	protected static MovingObjectPosition getMovingObjectPositionFromPlayer(World worldIn, EntityPlayer playerIn)
 	{
 		float f = 1.0F;
 		float f1 = playerIn.prevRotationPitch + (playerIn.rotationPitch - playerIn.prevRotationPitch) * f;
@@ -2743,47 +2680,47 @@ public class SoundEventHandler
 			d3 = ((EntityPlayerMP)playerIn).theItemInWorldManager.getBlockReachDistance();
 		}
 		Vec3 vec31 = vec3.addVector((double)f7 * d3, (double)f6 * d3, (double)f8 * d3);
-		return worldIn.func_147447_a(vec3, vec31, useLiquids, !useLiquids, false);
+		return worldIn.func_147447_a(vec3, vec31, true, false, false);
 	}
-	
-	
+
+
 	/**
 	 * This takes in an x, y, z and checks whether that block is a an ender portal frame
 	 * WITHOUT an eye, and is a component of a portal where all the OTHER blocks have eyes.
 	 * In essence, this is called when right-clicking an empty frame block while holding
-	 * an ender eye so it will tell you whether you've just activated an End portal. 
+	 * an ender eye so it will tell you whether you've just activated an End portal.
 	 */
 	private Integer[] endPortalTriggering (World world, int blockX, int blockY, int blockZ)
 	{
 		Block targetBlock = world.getBlock(blockX, blockY, blockZ);
 		int targetMeta = world.getBlockMetadata(blockX, blockY, blockZ);
-		
-		if ( 
+
+		if (
 				targetBlock == Blocks.end_portal_frame
 				&& (targetMeta & 4) == 0 // No Ender Eye inserted
 				)
 		{
 			// This is an end frame without an ender eye.
-			
+
 			Integer[] xOffsetsToScan = new Integer[]{0,1,2,2,2,1,0,-1,-2,-2,-2,-1};
 			Integer[] zOffsetsToScan = new Integer[]{-2,-2,-1,0,1,2,2,2,1,0,-1,-2};
 			Integer[] metaRequired   = new Integer[]{4,4,5,5,5,6,6,6,7,7,7,4};
-			
+
 			int portalCenterOffsetX = targetMeta==3 ? 2 : (targetMeta==1 ? -2 : 0);
 			int portalCenterOffsetZ = targetMeta==0 ? 2 : (targetMeta==2 ? -2 : 0);
-			
-			Block possibleFrameBlock=null;
-			int possibleFrameMeta=-1;
-			
-			
+
+			Block possibleFrameBlock;
+			int possibleFrameMeta;
+
+
 			for (int nudge = -1; nudge <= 1; nudge++) // The frame block might not be the center of a side, so check each of the three possible offsets
 			{
 				int portalCenterOffsetNudgeX = targetMeta%2==0 ? nudge : 0;
 				int portalCenterOffsetNudgeZ = (targetMeta+1)%2==0 ? nudge : 0;
-				
+
 				int eyedCorrectFramePieces = 0;
 				int uneyedCorrectFramePieces = 0;
-				
+
 				// Scan all 12 blocks around the presumed center of the portal
 				for (int i=0; i < xOffsetsToScan.length; i++)
 				{
@@ -2792,13 +2729,13 @@ public class SoundEventHandler
 							blockY,
 							blockZ + portalCenterOffsetZ + zOffsetsToScan[i] + portalCenterOffsetNudgeZ
 							);
-					
+
 					possibleFrameMeta = world.getBlockMetadata(
 							blockX + portalCenterOffsetX + xOffsetsToScan[i] + portalCenterOffsetNudgeX,
 							blockY,
 							blockZ + portalCenterOffsetZ + zOffsetsToScan[i] + portalCenterOffsetNudgeZ
 							);
-					
+
 					if (possibleFrameBlock == Blocks.end_portal_frame)
 					{
 						if (possibleFrameMeta == metaRequired[i]) {eyedCorrectFramePieces++;}
@@ -2806,7 +2743,7 @@ public class SoundEventHandler
 						else {break;}
 					}
 				}
-				
+
 				if (eyedCorrectFramePieces==11 && uneyedCorrectFramePieces==1)
 				{
 					// This is a newly-formed End Portal!
@@ -2818,11 +2755,11 @@ public class SoundEventHandler
 				}
 			}
 		}
-		
+
 		return null;
 	}
-	
-	
+
+
 	/**
 	 * Copied over from ItemLead.class
 	 * This method checks whether you're leading an animal and have clicked on a fence,
@@ -2844,44 +2781,43 @@ public class SoundEventHandler
             while (iterator.hasNext())
             {
                 EntityLiving entityliving = (EntityLiving)iterator.next();
-                
+
                 flag = (entityliving.getLeashed()
                 		&& entityliving.getLeashedToEntity() == player
                 		&& entityleashknot == null);
             }
         }
-        
+
         return flag;
     }
-	
-    
+
+
     /**
      * Invoking the general EntityLivingBase volume method
      */
-	static float getEntityLivingVolume(EntityLivingBase livingBase, Class classIn)
-	{
-		float entityVolume = 1F;
-		Method getSoundVolume_reflected = ReflectionHelper.findMethod(classIn, livingBase, new String[]{"getSoundVolume", "func_70599_aP"});
-		try {entityVolume = (Float)getSoundVolume_reflected.invoke(livingBase);}
-		catch (Exception e) {} // Failed to reflect Witch volume
-		
-		return entityVolume;
-	}
-	
+    static float getEntityLivingVolume(EntityLivingBase livingBase, Class classIn)
+    {
+        float entityVolume = 1F;
+        Method getSoundVolume_reflected = ReflectionHelper.findMethod(classIn, livingBase, new String[]{"getSoundVolume", "func_70599_aP"});
+        try {entityVolume = (Float)getSoundVolume_reflected.invoke(livingBase);}
+        catch (Exception e) {} // Failed to reflect Witch volume
+
+        return entityVolume;
+    }
 
     /**
      * Invoking the general EntityLivingBase pitch method
      */
-	static float getEntityLivingPitch(EntityLivingBase livingBase, Class classIn)
-	{
-		float entityPitch = 1F;
-		Method getSoundPitch_reflected = ReflectionHelper.findMethod(classIn, livingBase, new String[]{"getSoundPitch", "func_70647_i"});
-		try {entityPitch = (Float)getSoundPitch_reflected.invoke(livingBase);}
-		catch (Exception e) {
-			entityPitch = livingBase.isChild() ? (livingBase.worldObj.rand.nextFloat() - livingBase.worldObj.rand.nextFloat()) * 0.2F + 1.5F : (livingBase.worldObj.rand.nextFloat() - livingBase.worldObj.rand.nextFloat()) * 0.2F + 1.0F;
-			} // Failed to reflect Witch pitch
-		
-		return entityPitch;
-	}
-	
+    static float getEntityLivingPitch(EntityLivingBase livingBase, Class classIn)
+    {
+        float entityPitch = 1F;
+        Method getSoundPitch_reflected = ReflectionHelper.findMethod(classIn, livingBase, new String[]{"getSoundPitch", "func_70647_i"});
+        try {entityPitch = (Float)getSoundPitch_reflected.invoke(livingBase);}
+        catch (Exception e) {
+            entityPitch = livingBase.isChild() ? (livingBase.worldObj.rand.nextFloat() - livingBase.worldObj.rand.nextFloat()) * 0.2F + 1.5F : (livingBase.worldObj.rand.nextFloat() - livingBase.worldObj.rand.nextFloat()) * 0.2F + 1.0F;
+        } // Failed to reflect Witch pitch
+
+        return entityPitch;
+    }
+
 }
