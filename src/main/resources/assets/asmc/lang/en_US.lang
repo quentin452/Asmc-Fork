@@ -1,0 +1,73 @@
+### Subtitles ###
+
+# Exists in 1.9+
+subtitles.ambient.cave=Eerie noise
+subtitles.block.button.click=Button clicks
+subtitles.block.chest.close=Chest closes
+subtitles.block.chest.open=Chest opens
+subtitles.block.door.toggle=Door creaks
+subtitles.block.fence_gate.toggle=Fence Gate creaks
+subtitles.block.furnace.fire_crackle=Furnace crackles
+subtitles.block.generic.break=Block broken
+subtitles.block.generic.hit=Block breaking
+subtitles.block.generic.place=Block placed
+subtitles.block.iron_trapdoor.close=Trapdoor opens
+subtitles.block.iron_trapdoor.open=Trapdoor closes
+subtitles.block.trapdoor.toggle=Trapdoor creaks
+subtitles.enchant.thorns.hit=Thorns prick
+subtitles.entity.cow.milk=Cow gets milked
+subtitles.entity.generic.splash=Splashing
+subtitles.entity.generic.swim=Swimming
+subtitles.entity.horse.eat=Horse eats
+subtitles.entity.painting.break=Painting breaks
+subtitles.entity.painting.place=Painting placed
+subtitles.entity.squid.ambient=Squid swims
+subtitles.entity.squid.death=Squid dies
+subtitles.entity.squid.hurt=Squid hurts
+subtitles.entity.witch.ambient=Witch giggles
+subtitles.entity.witch.death=Witch dies
+subtitles.entity.witch.drink=Witch drinks
+subtitles.entity.witch.hurt=Witch hurts
+subtitles.item.armor.equip_chain=Chain armor jingles
+subtitles.item.armor.equip_diamond=Diamond armor clangs
+subtitles.item.armor.equip_gold=Gold armor clinks
+subtitles.item.armor.equip_iron=Iron armor clanks
+subtitles.item.armor.equip_leather=Leather armor rustles
+subtitles.item.armor.equip=Gear equips
+subtitles.item.bottle.fill=Bottle fills
+subtitles.item.bucket.empty=Bucket empties
+subtitles.item.bucket.fill=Bucket fills
+subtitles.item.hoe.till=Hoe tills
+subtitles.weather.rain=Rain falls
+
+# Exists in 1.9+ but name changed in 1.13
+subtitles.block.note.note=Note Block plays
+subtitles.entity.endereye.launch=Eye of Ender shoots
+subtitles.entity.itemframe.add_item=Item Frame fills
+subtitles.entity.itemframe.break=Item Frame breaks
+subtitles.entity.itemframe.place=Item Frame placed
+subtitles.entity.itemframe.remove_item=Item Frame empties
+subtitles.entity.itemframe.rotate_item=Item Frame clicks
+subtitles.entity.leashknot.break=Leash knot breaks
+subtitles.entity.leashknot.place=Leash knot tied
+subtitles.entity.snowman.death=Snow Golem dies
+subtitles.entity.snowman.hurt=Snow Golem hurts
+
+# Exists in 1.10+
+subtitles.entity.wither_skeleton.ambient=Wither Skeleton rattles
+subtitles.entity.wither_skeleton.death=Wither Skeleton dies
+subtitles.entity.wither_skeleton.hurt=Wither Skeleton hurts
+
+# Exists in 1.11+
+subtitles.entity.zombie_villager.ambient=Zombie Villager groans
+subtitles.entity.zombie_villager.death=Zombie Villager dies
+subtitles.entity.zombie_villager.hurt=Zombie Villager hurts
+subtitles.item.armor.equip_elytra=Elytra rustle
+
+# Exists in 1.13+
+subtitles.entity.fishing_bobber.throw=Bobber thrown
+subtitles.item.axe.strip=Debarking log
+
+# Exists in 1.14+
+subtitles.entity.mooshroom.milk=Mooshroom gets milked
+subtitles.item.book.page_turn=Page rustles
